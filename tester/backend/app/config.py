@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Software Risk Passport"
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
-        "postgresql+asyncpg://passport_user:passport_password@localhost:5432/risk_passport"
+        "sqlite+aiosqlite:///./risk_passport.db"
     )
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-super-secret-key")
     ALGORITHM: str = "HS256"

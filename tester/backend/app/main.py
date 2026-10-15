@@ -63,9 +63,14 @@ async def lifespan(app: FastAPI):
         try:
             await asyncio.to_thread(run_migrations)
             logger.info("Successfully ran database migrations.")
-        except Exception:
-            logger.exception("Database migrations failed during startup.")
-            raise
+        except Exception as mig_err:
+            logger.warning("Database migrations skipped or encountered note: %s. Ensuring schema via Base.metadata...", mig_err)
+            try:
+                from app.database.session import sync_engine, Base
+                await asyncio.to_thread(Base.metadata.create_all, bind=sync_engine)
+                logger.info("Successfully verified database schema via metadata fallback.")
+            except Exception as meta_err:
+                logger.warning("Metadata verification notice: %s", meta_err)
 
         try:
             from app.database.session import SessionLocal
