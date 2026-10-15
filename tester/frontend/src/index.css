@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background-light text-slate-900 dark:bg-background-dark dark:text-slate-100 antialiased transition-colors duration-300 min-h-screen;
+  }
+}
+
+/* Cybernetic Radar & Scanning HUD Animations */
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes laser-beam {
+  0% { transform: translateY(-10%); opacity: 0.9; }
+  50% { transform: translateY(180px); opacity: 0.4; }
+  100% { transform: translateY(-10%); opacity: 0.9; }
+}
+
+@keyframes ping-radar {
+  0% { transform: scale(0.85); opacity: 0.9; }
+  50% { transform: scale(1.35); opacity: 0.3; }
+  100% { transform: scale(1.75); opacity: 0; }
+}
+
+@keyframes cyber-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 2.2s linear infinite;
+}
+
+.animate-laser-beam {
+  animation: laser-beam 2.8s ease-in-out infinite;
+}
+
+.animate-ping-radar {
+  animation: ping-radar 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-cyber-shimmer {
+  background-size: 200% 100%;
+  animation: cyber-shimmer 3s ease-in-out infinite;
+}
+
+.cyber-grid-bg {
+  background-image: 
+    linear-gradient(to right, rgba(14, 165, 233, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(14, 165, 233, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.cyber-glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(14, 165, 233, 0.35), 0 0 10px -2px rgba(56, 189, 248, 0.2);
+}
+
+.cyber-glow-emerald {
+  box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.45), 0 0 12px -2px rgba(52, 211, 153, 0.3);
+}
+
+/* Dedicated Print & PDF Export Styling */
+@media print {
+  @page {
+    margin: 1.2cm;
+    size: A4 portrait;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10pt !important;
+    line-height: 1.4 !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Completely eliminate sidebar, header, navigation, and interactive buttons */
+  aside,
+  header,
+  nav,
+  button,
+  input,
+  select,
+  .print\:hidden,
+  .custom-scrollbar {
+    display: none !important;
+  }
+
+  /* Reset layout constraints and dark backgrounds across all elements */
+  #root,
+  .min-h-screen,
+  .h-screen,
+  main,
+  article,
+  section,
+  div {
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    position: static !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+  }
+
+  /* Clean contrast borders for printed cards */
+  .border,
+  .border-b,
+  .border-t,
+  .border-r,
+  .border-l {
+    border-color: #e2e8f0 !important;
+    background: #ffffff !important;
+  }
+
+  /* Specific readable text styles */
+  h1, h2, h3, h4, p, span, td, th {
+    color: #0f172a !important;
+  }
+
+  .text-slate-400,
+  .text-slate-500,
+  .text-slate-600 {
+    color: #475569 !important;
+  }
+
+  /* Prevent page-break splitting in cards, findings, and tables */
+  .rounded-xl,
+  .rounded-lg,
+  .rounded-2xl,
+  tr,
+  table,
+  article {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Expand diffs and code blocks gracefully */
+  pre, code {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    font-size: 8.5pt !important;
+    background: #f8fafc !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+  }
+}

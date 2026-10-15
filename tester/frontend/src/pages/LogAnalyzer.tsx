@@ -1,0 +1,495 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  FileText, 
+  Upload, 
+  ShieldAlert, 
+  ShieldCheck, 
+  AlertTriangle, 
+  Sparkles, 
+  Copy, 
+  Check, 
+  Download, 
+  RefreshCw, 
+  Search,
+  X
+} from 'lucide-react';
+import { apiClient } from '../config';
+
+interface Finding {
+  severity: 'Critical' | 'Warning' | 'Info';
+  message: string;
+  recommendation?: string;
+  matched_line?: string;
+}
+
+interface AnalysisResult {
+  status: string;
+  findings: Finding[];
+}
+
+export default function LogAnalyzer() {
+  const [logText, setLogText] = useState<string>('');
+  const [fileName, setFileName] = useState<string>('');
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [filterSeverity, setFilterSeverity] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  // AI Fix state
+  const [aiFixModalOpen, setAiFixModalOpen] = useState<boolean>(false);
+  const [aiFixText, setAiFixText] = useState<string>('');
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+
+    if (file.name.endsWith('.zip')) {
+      try {
+        setLogText('⚡ Decompressing and filtering code archive in browser...');
+        const { unzip } = await import('fflate');
+        const buffer = new Uint8Array(await file.arrayBuffer());
+
+        const unzipped = await new Promise<Record<string, Uint8Array>>((resolve, reject) => {
+          unzip(
+            buffer,
+            {
+              filter(entry) {
+                const name = entry.name.toLowerCase();
+                if (
+                  name.includes('node_modules/') ||
+                  name.includes('.git/') ||
+                  name.includes('.next/') ||
+                  name.includes('dist/') ||
+                  name.includes('build/')
+                ) {
+                  return false;
+                }
+                if (
+                  name.match(/\.(png|jpg|jpeg|gif|ico|svg|pdf|exe|dll|zip|tar|gz|7z|rar|mp4|webm|mp3|wav|woff|woff2|ttf|eot|otf|bin|iso|dmg|apk|jar|class|pyc|so|dylib|map|lock)$/i)
+                ) {
+                  return false;
+                }
+                return true;
+              }
+            },
+            (err, data) => {
+              if (err) reject(err);
+              else resolve(data);
+            }
+          );
+        });
+
+        let extractedText = '';
+        const decoder = new TextDecoder('utf-8', { fatal: false });
+
+        for (const [name, u8] of Object.entries(unzipped)) {
+          if (!u8 || u8.length === 0) continue;
+          try {
+            const text = decoder.decode(u8);
+            extractedText += `\n--- File: ${name} ---\n` + text;
+            if (extractedText.length > 500000) {
+              extractedText += '\n... [TRUNCATED - LOG CONTENT REACHED SAFETY THRESHOLD] ...\n';
+              break;
+            }
+          } catch {
+            // skip un-decodable binary
+          }
+        }
+
+        if (!extractedText.trim()) {
+          setLogText('No readable source or log text files detected in this zip archive.');
+        } else {
+          setLogText(extractedText.trim());
+        }
+      } catch (err) {
+        console.error('Error decompressing archive:', err);
+        setLogText('Failed to decompress file. Please ensure it is a standard, unencrypted ZIP.');
+      }
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setLogText((event.target?.result as string) || '');
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const runAnalysis = async () => {
+    if (!logText.trim()) return;
+    setLoading(true);
+    setAnalysis(null);
+
+    try {
+      const res = await apiClient.post('/runs/analyze-manual', { log_text: logText });
+      setAnalysis(res.data);
+    } catch (err) {
+      console.error('Analysis error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateAIFix = async () => {
+    if (!analysis || analysis.findings.length === 0) return;
+    setAiLoading(true);
+    setAiFixModalOpen(true);
+    setAiFixText('');
+
+    try {
+      const res = await apiClient.post('/runs/generate-fix', {
+        findings: analysis.findings.slice(0, 15) // send top 15 findings
+      });
+      setAiFixText(res.data.response || 'No remediation generated.');
+    } catch (err: any) {
+      setAiFixText(`Failed to generate AI fix: ${err.message || err}`);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const copyFinding = (text: string, idx: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2000);
+  };
+
+  const exportPDF = async () => {
+    if (!analysis) return;
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.setTextColor(30, 41, 59);
+      doc.text('Security Vulnerability & Code Quality Report', 14, 22);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Target File: ${fileName || 'Manual Log Input'}`, 14, 30);
+      doc.text(`Generated: ${new Date().toLocaleString()} | Overall Status: ${analysis.status}`, 14, 36);
+
+      const tableData = analysis.findings.map(f => [
+        f.severity,
+        f.message,
+        f.recommendation || 'Review issue'
+      ]);
+
+      autoTable(doc, {
+        head: [['Severity', 'Finding / Location', 'Remediation Advice']],
+        body: tableData,
+        startY: 44,
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 8, cellPadding: 3 }
+      });
+
+      doc.save(`security_audit_${Date.now()}.pdf`);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    }
+  };
+
+  const exportCSV = () => {
+    if (!analysis) return;
+    const rows = [
+      ['Severity', 'Finding / Location', 'Remediation Guidance'],
+      ...analysis.findings.map(f => [
+        `"${f.severity}"`,
+        `"${(f.message || '').replace(/"/g, '""')}"`,
+        `"${(f.recommendation || '').replace(/"/g, '""')}"`
+      ])
+    ];
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `security_audit_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredFindings = (analysis?.findings || []).filter(f => {
+    const matchesSeverity = filterSeverity === 'ALL' || f.severity.toUpperCase() === filterSeverity;
+    const matchesSearch = !searchQuery || f.message.toLowerCase().includes(searchQuery.toLowerCase()) || (f.recommendation && f.recommendation.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesSeverity && matchesSearch;
+  });
+
+  const criticalCount = (analysis?.findings || []).filter(f => f.severity === 'Critical').length;
+  const warningCount = (analysis?.findings || []).filter(f => f.severity === 'Warning').length;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
+            <FileText className="w-7 h-7 text-brand-500" />
+            Ad-Hoc Log & Codebase Analyzer
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Upload ZIP archives or paste raw output for deterministic vulnerability detection, AST triage, and AI fixes.
+          </p>
+        </div>
+      </div>
+
+      {/* Input Section */}
+      <div className="p-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <label className="relative cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 transition">
+            <Upload className="w-4 h-4 text-brand-500" />
+            <span>{fileName ? `File: ${fileName}` : 'Upload Code ZIP or Log File'}</span>
+            <input
+              type="file"
+              onChange={handleFileUpload}
+              accept=".zip,.txt,.log,.json,.js,.ts,.jsx,.tsx"
+              className="sr-only"
+            />
+          </label>
+
+          <div className="flex items-center gap-2">
+            {logText && (
+              <button
+                onClick={() => { setLogText(''); setAnalysis(null); setFileName(''); }}
+                className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-2 py-1"
+              >
+                Clear Input
+              </button>
+            )}
+            <button
+              onClick={runAnalysis}
+              disabled={loading || !logText.trim()}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-medium text-sm rounded-lg transition shadow-sm disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Analyzing...
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4" /> Run Vulnerability Scan
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <textarea
+          rows={6}
+          value={logText}
+          onChange={(e) => setLogText(e.target.value)}
+          placeholder="Paste server logs, build logs, ESLint outputs, or paste code snippets directly here..."
+          className="w-full p-4 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 resize-y"
+        />
+      </div>
+
+      {/* Analysis Results */}
+      {analysis && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-400">Scan Status</p>
+                <p className={`text-2xl font-bold mt-1 ${analysis.status === 'Pass' ? 'text-emerald-500' : analysis.status === 'Warning' ? 'text-amber-500' : 'text-rose-500'}`}>
+                  {analysis.status}
+                </p>
+              </div>
+              {analysis.status === 'Pass' ? (
+                <ShieldCheck className="w-10 h-10 text-emerald-500/20" />
+              ) : (
+                <ShieldAlert className="w-10 h-10 text-rose-500/20" />
+              )}
+            </div>
+
+            <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-400">Critical Vulnerabilities</p>
+                <p className="text-2xl font-bold mt-1 text-rose-500 font-mono">{criticalCount}</p>
+              </div>
+              <ShieldAlert className="w-10 h-10 text-rose-500/20" />
+            </div>
+
+            <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-400">Warnings & Advisories</p>
+                <p className="text-2xl font-bold mt-1 text-amber-500 font-mono">{warningCount}</p>
+              </div>
+              <AlertTriangle className="w-10 h-10 text-amber-500/20" />
+            </div>
+          </div>
+
+          {/* Action Toolbar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase text-slate-400 mr-2">Filter:</span>
+              {(['ALL', 'CRITICAL', 'WARNING'] as const).map((sev) => (
+                <button
+                  key={sev}
+                  onClick={() => setFilterSeverity(sev)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                    filterSeverity === sev
+                      ? 'bg-brand-500 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {sev}
+                </button>
+              ))}
+              <div className="relative ml-2">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                <input
+                  type="text"
+                  placeholder="Search findings..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 pr-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500 w-44"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={generateAIFix}
+                disabled={analysis.findings.length === 0}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-lg shadow-sm transition"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Generate AI Remediation
+              </button>
+              <button
+                onClick={exportPDF}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg transition"
+              >
+                <Download className="w-3.5 h-3.5" /> PDF
+              </button>
+              <button
+                onClick={exportCSV}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg transition"
+              >
+                <Download className="w-3.5 h-3.5" /> CSV
+              </button>
+            </div>
+          </div>
+
+          {/* Findings List */}
+          <div className="space-y-3">
+            {filteredFindings.length === 0 ? (
+              <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 text-sm">
+                No findings match the selected filter.
+              </div>
+            ) : (
+              filteredFindings.map((finding, idx) => (
+                <div
+                  key={idx}
+                  className={`p-4 rounded-xl border bg-white dark:bg-slate-900 shadow-sm transition ${
+                    finding.severity === 'Critical'
+                      ? 'border-rose-200 dark:border-rose-900/40 bg-rose-50/20 dark:bg-rose-950/10'
+                      : 'border-amber-200 dark:border-amber-900/40 bg-amber-50/20 dark:bg-amber-950/10'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      {finding.severity === 'Critical' ? (
+                        <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <span className={`inline-block px-2 py-0.5 text-[10px] font-bold uppercase rounded mb-1 ${
+                          finding.severity === 'Critical' ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'
+                        }`}>
+                          {finding.severity}
+                        </span>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 font-mono">
+                          {finding.message}
+                        </p>
+                        {finding.recommendation && (
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
+                            💡 <span className="font-medium text-slate-700 dark:text-slate-300">Fix Guidance:</span> {finding.recommendation}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => copyFinding(`${finding.message}\nFix: ${finding.recommendation}`, idx)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded transition shrink-0"
+                      title="Copy finding details"
+                    >
+                      {copiedIdx === idx ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* AI Remediation Modal */}
+      <AnimatePresence>
+        {aiFixModalOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-2xl w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="p-4 px-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-semibold">
+                  <Sparkles className="w-5 h-5 text-brand-500" />
+                  AI Security Patch Proposal
+                </div>
+                <button
+                  onClick={() => setAiFixModalOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1 font-mono text-xs leading-relaxed text-slate-800 dark:text-slate-200 bg-slate-50/50 dark:bg-slate-950/50 whitespace-pre-wrap">
+                {aiLoading ? (
+                  <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+                    <RefreshCw className="w-8 h-8 animate-spin text-brand-500 mb-3" />
+                    <span>Analyzing code AST and generating security patch proposal...</span>
+                  </div>
+                ) : (
+                  aiFixText
+                )}
+              </div>
+
+              <div className="p-4 px-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(aiFixText);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  disabled={aiLoading || !aiFixText}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg transition"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  {copied ? 'Copied!' : 'Copy Fix Code'}
+                </button>
+                <button
+                  onClick={() => setAiFixModalOpen(false)}
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition shadow-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

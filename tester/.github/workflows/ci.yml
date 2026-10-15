@@ -1,0 +1,73 @@
+name: CI Regression Gate & Build Verification
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  backend-benchmark-and-tests:
+    name: Backend Regression & Benchmark Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-asyncio anyio httpx
+
+      - name: Run Security Benchmark & Accuracy Evaluation
+        run: |
+          PYTHONPATH=backend pytest -v backend/tests/test_benchmark_regression.py
+
+      - name: Run Pull Request Security Gate Tests
+        run: |
+          PYTHONPATH=backend pytest -v backend/tests/test_pr_gate.py
+
+      - name: Run Complete Backend Test Suite
+        run: |
+          PYTHONPATH=backend pytest -v backend/tests
+
+  frontend-build-and-assets:
+    name: Frontend Typecheck, Build & Asset Integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Typecheck and Build
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Verify Build Asset Integrity
+        run: |
+          cd frontend
+          npm run test:assets
