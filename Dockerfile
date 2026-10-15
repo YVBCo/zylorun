@@ -5,10 +5,11 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system utilities (git for repository scanners and tests)
+# Install system utilities (git for repository scanners and tests, libpq5 for postgres)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
+    libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies

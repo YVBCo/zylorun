@@ -16,9 +16,14 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Set the sqlalchemy.url dynamically
-# Replace async drivers with sync drivers for synchronous alembic if preferred, or use async alembic.
-# Here we use async alembic
+# Ensure async driver for async alembic runner
 url = settings.DATABASE_URL
+if url.startswith("postgres://"):
+    url = url.replace("postgres://", "postgresql://", 1)
+if url.startswith("postgresql://") and not url.startswith("postgresql+"):
+    url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif url.startswith("sqlite://") and not url.startswith("sqlite+"):
+    url = url.replace("sqlite://", "sqlite+aiosqlite://", 1)
 config.set_main_option("sqlalchemy.url", url)
 
 target_metadata = Base.metadata

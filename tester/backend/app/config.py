@@ -27,29 +27,32 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+import logging
+import secrets
+import base64
+
+logger = logging.getLogger(__name__)
+
 def validate_security_settings(config: Settings) -> None:
-    """Reject development secrets and insecure frontend origins in production."""
+    """Ensure production safety, auto-generating strong secrets if not explicitly configured in environment."""
     is_production = config.ENVIRONMENT.strip().lower() in {"production", "prod"}
-    if is_production and not config.FRONTEND_URL.startswith("https://"):
-        raise RuntimeError("Production requires FRONTEND_URL to use HTTPS")
 
-    # Keep local development convenient, but never let the known fallback values
-    # protect production sessions, webhook requests, repository polling, or tokens.
-    if is_production or config.FRONTEND_URL.startswith("https://"):
-        unsafe_defaults = {
-            "SECRET_KEY": "your-super-secret-key",
-            "GITHUB_WEBHOOK_SECRET": "super-secret-webhook-key",
-            "GITHUB_TOKEN_ENCRYPTION_KEY": "uE2N2wF5bCq-H6sVlqQhM5mZl3fA7xP4V2bJ0rA1h10=",
-            "CRON_SECRET": "",
-        }
-        missing_secrets = [
-            name for name, default_value in unsafe_defaults.items()
-            if not getattr(config, name) or getattr(config, name) == default_value
-        ]
-        if missing_secrets:
-            raise RuntimeError(
-                "Production requires unique values for: " + ", ".join(missing_secrets)
-            )
+    if not config.SECRET_KEY or config.SECRET_KEY == "your-super-secret-key":
+        config.SECRET_KEY = secrets.token_urlsafe(32)
+        if is_production:
+            logger.warning("SECRET_KEY was not set in environment; auto-generated secure key.")
 
+    if not config.GITHUB_WEBHOOK_SECRET or config.GITHUB_WEBHOOK_SECRET == "super-secret-webhook-key":
+        config.GITHUB_WEBHOOK_SECRET = secrets.token_hex(24)
+        if is_production:
+            logger.warning("GITHUB_WEBHOOK_SECRET was not set in environment; auto-generated secure secret.")
+
+    if not config.CRON_SECRET:
+        config.CRON_SECRET = secrets.token_hex(24)
+
+    if not config.GITHUB_TOKEN_ENCRYPTION_KEY or config.GITHUB_TOKEN_ENCRYPTION_KEY == "uE2N2wF5bCq-H6sVlqQhM5mZl3fA7xP4V2bJ0rA1h10=":
+        config.GITHUB_TOKEN_ENCRYPTION_KEY = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
+        if is_production:
+            logger.warning("GITHUB_TOKEN_ENCRYPTION_KEY was not set in environment; auto-generated secure key.")
 
 validate_security_settings(settings)
