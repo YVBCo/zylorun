@@ -144,12 +144,32 @@ app = FastAPI(title="Software Risk Passport", lifespan=lifespan)
 
 from app.config import settings
 
+cors_origins = [
+    "https://zylorun-five.vercel.app",
+    "https://zylorun.vercel.app",
+    "https://vovalyx.in",
+    "https://www.vovalyx.in",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+
+if settings.FRONTEND_URL and settings.FRONTEND_URL != "*":
+    for origin in settings.FRONTEND_URL.split(","):
+        origin = origin.strip()
+        if origin and origin not in cors_origins:
+            cors_origins.append(origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
+    allow_origins=cors_origins,
+    allow_origin_regex=r"^https://.*\.vercel\.app$|^https://.*\.onrender\.com$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.include_router(auth.router)
