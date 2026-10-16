@@ -1487,38 +1487,86 @@ export default function Landing() {
             </div>
           </div>
         </section>
+        <div style={{ height: '70px' }} aria-hidden="true" />
       </main>
 
-      {/* Footer */}
-      <footer style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '24px 32px', borderTop: '1px solid rgba(255,255,255,0.08)', background: '#0a0e17' }}>
+      {/* Static / Fixed Highlighted Vovalyx Footer */}
+      <footer
+        onClick={() => window.open('https://www.vovalyx.in/', '_blank', 'noopener,noreferrer')}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 999,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          padding: '12px 28px',
+          background: 'rgba(10, 14, 23, 0.92)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderTop: '1px solid rgba(0, 217, 255, 0.45)',
+          boxShadow: '0 -4px 24px rgba(0, 217, 255, 0.2), 0 -1px 4px rgba(0, 0, 0, 0.8)',
+          cursor: 'pointer',
+          transition: 'all 0.25s ease'
+        }}
+        title="Click to visit Vovalyx (https://www.vovalyx.in/)"
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <a 
-            href="https://www.vovalyx.in/" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit' }}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              background: 'rgba(0, 217, 255, 0.08)',
+              border: '1px solid rgba(0, 217, 255, 0.25)'
+            }}
           >
             <img 
               src="/vovalyx-logo.png" 
               alt="Vovalyx Logo" 
-              style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'contain' }} 
+              style={{ width: '24px', height: '24px', borderRadius: '5px', objectFit: 'contain' }} 
             />
-            <span style={{ fontWeight: 700, fontSize: '15px', color: '#fff', letterSpacing: '-0.2px' }}>
+            <span style={{ fontWeight: 800, fontSize: '15px', color: '#fff', letterSpacing: '-0.2px' }}>
               Vovalyx
             </span>
-          </a>
+          </div>
+
           <span style={{ color: '#4B5563' }}>|</span>
-          <a 
-            href="https://www.vovalyx.in/" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            style={{ color: '#00D9FF', textDecoration: 'none', fontSize: '13px', fontWeight: 500 }}
+
+          <span
+            style={{
+              color: '#00D9FF',
+              fontSize: '13px',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
           >
             Vovalyx — Engineer your vision.
-          </a>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </span>
         </div>
-        <div style={{ fontSize: '13px', color: '#6B7280' }}>
-          &copy; {new Date().getFullYear()} Vovalyx. All rights reserved.
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12px', color: '#9CA3AF' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#37D6A0', boxShadow: '0 0 8px #37D6A0' }} />
+            Official Platform Partner
+          </span>
+          <span style={{ color: '#4B5563' }}>•</span>
+          <span style={{ color: '#E2E8F0', fontWeight: 500 }}>
+            Click to visit www.vovalyx.in ➔
+          </span>
         </div>
       </footer>
     </div>

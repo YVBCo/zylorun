@@ -20,10 +20,38 @@ else:
 # Synchronous engine helper for sync threads, background tasks, and seed operations
 sync_url = raw_url.replace("+aiosqlite", "").replace("+asyncpg", "")
 
-engine = create_async_engine(async_url, echo=False)
+is_sqlite = "sqlite" in async_url
+async_kwargs = {"echo": False}
+sync_kwargs = {"echo": False}
+
+if not is_sqlite:
+    async_kwargs.update({
+        "pool_size": 50,
+        "max_overflow": 100,
+        "pool_timeout": 30,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True,
+    })
+    sync_kwargs.update({
+        "pool_size": 25,
+        "max_overflow": 50,
+        "pool_timeout": 30,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True,
+    })
+else:
+    async_kwargs.update({
+        "pool_pre_ping": True,
+    })
+    sync_kwargs.update({
+        "connect_args": {"check_same_thread": False, "timeout": 30},
+        "pool_pre_ping": True,
+    })
+
+engine = create_async_engine(async_url, **async_kwargs)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
-sync_engine = create_engine(sync_url, echo=False)
+sync_engine = create_engine(sync_url, **sync_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 
 Base = declarative_base()
