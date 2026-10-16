@@ -207,17 +207,17 @@ async def analyze_url_speed(
             content_size = len(res.content)
             status_code = res.status_code
 
-            if total_time_ms < 400 and status_code < 400:
+            if total_time_ms < 1500 and status_code < 400:
                 speed_grade = "GREEN"
-                status_text = "Fast / Optimal Latency"
+                status_text = "Optimal / Fast Response"
                 badge_color = "#00e676"
-            elif total_time_ms <= 900 and status_code < 400:
+            elif total_time_ms <= 3000 and status_code < 400:
                 speed_grade = "YELLOW"
                 status_text = "Moderate / Average Response"
                 badge_color = "#ffab00"
             else:
                 speed_grade = "RED"
-                status_text = "Slow / High Latency"
+                status_text = "High Latency / Slow"
                 badge_color = "#ff3366"
 
             return {

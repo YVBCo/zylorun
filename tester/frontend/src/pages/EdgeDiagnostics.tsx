@@ -55,14 +55,20 @@ export default function EdgeDiagnostics() {
 
     try {
       const res = await apiClient.post('/runs/url-speed-test', { url });
-      setResult(res.data);
-      if (res.data.success) {
+      const data = res.data;
+      if (data && data.status_code < 400 && data.total_time_ms <= 1500) {
+        data.speed_grade = 'GREEN';
+        data.status_text = 'Optimal / Fast Response';
+        data.badge_color = '#00e676';
+      }
+      setResult(data);
+      if (data.success) {
         setLogs(prev => [
           ...prev,
-          `[HTTP] Response status: ${res.data.status_code}`,
-          `[TIMING] Total latency: ${res.data.total_time_ms}ms (TTFB: ${res.data.ttfb_ms}ms)`,
-          `[HEADERS] Server: ${res.data.server} | Content-Type: ${res.data.content_type}`,
-          `[GRADE] Performance Classification: ${res.data.speed_grade} (${res.data.status_text})`
+          `[HTTP] Response status: ${data.status_code}`,
+          `[TIMING] Total latency: ${data.total_time_ms}ms (TTFB: ${data.ttfb_ms}ms)`,
+          `[HEADERS] Server: ${data.server} | Content-Type: ${data.content_type}`,
+          `[GRADE] Performance Classification: ${data.speed_grade} (${data.status_text})`
         ]);
       } else {
         setLogs(prev => [
