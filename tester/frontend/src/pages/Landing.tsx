@@ -109,7 +109,7 @@ export default function Landing() {
     const out = terminalOutRef.current;
     const pb = terminalProgressRef.current;
     if (!out || !pb) return;
-    out.innerHTML = '';
+    out.textContent = '';
     pb.style.width = '0%';
 
     terminalSteps.forEach((step, i) => {
