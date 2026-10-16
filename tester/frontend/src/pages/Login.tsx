@@ -16,7 +16,7 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       const formData = new URLSearchParams();
-      formData.append('username', username);
+      formData.append('username', username.trim());
       formData.append('password', password);
       
       const res = await apiClient.post(`/auth/login`, formData);
@@ -36,11 +36,11 @@ export default function Login() {
       
       <div className="w-full max-w-md p-8 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-xl shadow-black/5 dark:shadow-black/20 z-10">
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="w-16 h-16 rounded-xl flex items-center justify-center mb-4">
-            <img src="/gitflow-logo.jpg" alt="GitFlow Logo" className="w-full h-full object-cover rounded-xl shadow-md border border-slate-700/50" />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-slate-900 border border-slate-700/60 shadow-xl shadow-cyan-950/20">
+            <img src="/zylorun-logo.svg" alt="Zylorun Logo" className="w-full h-full object-contain p-2" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight mb-1">Welcome to GitFlow</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Sign in to your account to continue</p>
+          <h2 className="text-2xl font-bold tracking-tight mb-1 text-white">Welcome to Zylorun</h2>
+          <p className="text-sm text-slate-400">Sign in to your account to continue</p>
         </div>
 
         {error && <div role="alert" aria-live="polite" className="mb-4 text-red-500 text-sm text-center">{error}</div>}

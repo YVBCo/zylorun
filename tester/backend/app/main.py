@@ -121,13 +121,25 @@ async def lifespan(app: FastAPI):
                         for c in defaults:
                             db.add(c)
                         db.commit()
+
+                    from app.database.models import User
+                    from app.auth.security import get_password_hash
+                    if db.query(User).count() == 0:
+                        admin_user = User(
+                            username="admin",
+                            email="admin@zylorun.io",
+                            hashed_password=get_password_hash("admin123"),
+                            is_active=True
+                        )
+                        db.add(admin_user)
+                        db.commit()
                 except Exception as exc:
-                    logger.warning("Could not seed default command configs: %s", exc)
+                    logger.warning("Could not seed default configs/users: %s", exc)
                 finally:
                     db.close()
             await asyncio.to_thread(_seed)
         except Exception as exc:
-            logger.warning("Default command seeding encountered exception: %s", exc)
+            logger.warning("Default seeding encountered exception: %s", exc)
 
         poller_task = asyncio.create_task(background_repo_poller())
         yield
@@ -140,7 +152,7 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
 
 
-app = FastAPI(title="Software Risk Passport", lifespan=lifespan)
+app = FastAPI(title="Zylorun", lifespan=lifespan)
 
 from app.config import settings
 
@@ -187,8 +199,8 @@ app.include_router(system_tests.router)
 @app.get("/api/v1/health")
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "Unified Security Platform", "version": "2.0.0"}
+    return {"status": "healthy", "service": "Zylorun", "version": "2.1.0"}
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Software Risk Passport API"}
+    return {"message": "Welcome to Zylorun Autonomous Risk & Assurance API", "version": "2.1.0"}

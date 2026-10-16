@@ -64,7 +64,7 @@ export default function FeatureExplainerModal({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                GitFlow Project Hub Feature Guide & Verification Catalogue
+                Zylorun Project Hub Feature Guide & Verification Catalogue
               </h2>
               <p className="text-xs text-slate-400">
                 Verified, maintainable user guide for all 9 intelligence tabs, 10 continuous analyzers, and key metrics.

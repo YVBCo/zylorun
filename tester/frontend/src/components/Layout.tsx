@@ -67,9 +67,9 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-64 border-r border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-border-light dark:border-border-dark">
-          <img src="/gitflow-logo.jpg" alt="GitFlow Logo" className="w-8 h-8 rounded mr-3 shadow-sm border border-slate-700/50" />
-          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-500 to-brand-400 tracking-tight">
-            GitFlow
+          <img src="/zylorun-logo.svg" alt="Zylorun Logo" className="w-8 h-8 rounded-lg mr-3 shadow-md bg-slate-900 border border-slate-700/60 p-0.5" />
+          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 tracking-tight">
+            Zylorun
           </span>
         </div>
         

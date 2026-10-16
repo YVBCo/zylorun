@@ -438,8 +438,8 @@ export default function ProjectHub() {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-8">
         <div className="flex items-center gap-3 text-slate-400">
-          <RefreshCw className="w-5 h-5 animate-spin text-brand-400" />
-          <span>Loading GitFlow Project Hub...</span>
+          <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />
+          <span>Loading Zylorun Project Hub...</span>
         </div>
       </div>
     );
@@ -451,13 +451,13 @@ export default function ProjectHub() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-brand-500/10 text-brand-400 border border-brand-500/20">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <Compass className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                GitFlow Project Hub
-                <span className="text-xs uppercase px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20 font-semibold">
+                Zylorun Project Hub
+                <span className="text-xs uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
                   Unified Intelligence
                 </span>
               </h1>
@@ -618,7 +618,7 @@ export default function ProjectHub() {
                     {overviewData.total_commits || 0}
                   </div>
                   <div className="text-xs text-slate-400 mt-2">
-                    Tracked in GitFlow timeline
+                    Tracked in Zylorun timeline
                   </div>
                 </div>
 
@@ -1398,8 +1398,8 @@ export default function ProjectHub() {
                 <p>
                   Add <code className="text-brand-300 font-mono">GEMINI_API_KEY</code>,{' '}
                   <code className="text-brand-300 font-mono">OPENAI_API_KEY</code>, or{' '}
-                  <code className="text-brand-300 font-mono">ANTHROPIC_API_KEY</code> in Render Dashboard &rarr; GitFlow Backend &rarr; Environment.
-                  GitFlow auto-detects the provider and immediately enables live completion.
+                  <code className="text-brand-300 font-mono">ANTHROPIC_API_KEY</code> in Render Dashboard &rarr; Zylorun Backend &rarr; Environment.
+                  Zylorun auto-detects the provider and immediately enables live completion.
                 </p>
               </div>
             )}

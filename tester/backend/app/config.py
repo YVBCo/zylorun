@@ -2,14 +2,14 @@ import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Software Risk Passport"
+    PROJECT_NAME: str = "Zylorun"
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
         "sqlite+aiosqlite:///./risk_passport.db"
     )
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-super-secret-key")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     GITHUB_WEBHOOK_SECRET: str = os.getenv("GITHUB_WEBHOOK_SECRET", "super-secret-webhook-key")
     GITHUB_CLIENT_ID: str = os.getenv("GITHUB_CLIENT_ID", "")
     GITHUB_CLIENT_SECRET: str = os.getenv("GITHUB_CLIENT_SECRET", "")
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     GITHUB_OAUTH_STATE_TTL_SECONDS: int = 600
     SCAN_TIMEOUT_SECONDS: int = 120
-    CRON_SECRET: str = os.getenv("GITFLOW_CRON_SECRET", "")
+    CRON_SECRET: str = os.getenv("ZYLORUN_CRON_SECRET", os.getenv("GITFLOW_CRON_SECRET", ""))
     MAX_COMMITS_PER_POLL: int = int(os.getenv("MAX_COMMITS_PER_POLL", "10"))
     MAX_POLLING_RUNTIME_SECONDS: int = int(os.getenv("MAX_POLLING_RUNTIME_SECONDS", "240"))
     MAX_CONCURRENT_SCANS: int = int(os.getenv("MAX_CONCURRENT_SCANS", "2"))

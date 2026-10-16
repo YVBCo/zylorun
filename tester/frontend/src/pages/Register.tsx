@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield } from 'lucide-react';
 import { apiClient } from '../config';
 
 export default function Register() {
@@ -37,11 +36,11 @@ export default function Register() {
       
       <div className="w-full max-w-md p-8 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-xl shadow-black/5 dark:shadow-black/20 z-10">
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center mb-4">
-            <Shield className="w-6 h-6 text-brand-500" />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-slate-900 border border-slate-700/60 shadow-xl shadow-cyan-950/20">
+            <img src="/zylorun-logo.svg" alt="Zylorun Logo" className="w-full h-full object-contain p-2" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight mb-1">Create an account</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Start securing your software supply chain</p>
+          <h2 className="text-2xl font-bold tracking-tight mb-1 text-white">Create your Zylorun Account</h2>
+          <p className="text-sm text-slate-400">Autonomous Software Risk & Assurance Platform</p>
         </div>
 
         {error && <div className="mb-4 text-red-500 text-sm text-center">{error}</div>}

@@ -183,7 +183,7 @@ export default function Dashboard() {
 
       setDeleteDialogOpen(false);
       setRepoToDelete(null);
-      setDeleteSuccessMsg(`Repository "${deletedName}" was successfully removed from GitFlow.`);
+      setDeleteSuccessMsg(`Repository "${deletedName}" was successfully removed from Zylorun.`);
 
       setTimeout(() => {
         setDeleteSuccessMsg('');
@@ -553,7 +553,7 @@ export default function Dashboard() {
                       disabled={isDeleting}
                       onClick={(e) => handleOpenDeleteDialog(repo, e)}
                       className="px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 border border-transparent hover:border-red-200 dark:hover:border-red-900/50 transition-colors flex items-center space-x-1.5"
-                      title="Remove repository from GitFlow"
+                      title="Remove repository from Zylorun"
                       aria-label={`Remove repository ${repo.name}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -714,7 +714,7 @@ export default function Dashboard() {
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
               <p>
-                Remove this repository from GitFlow? Its stored scans, findings, risk history and repository-specific audit records will be deleted. The actual GitHub repository and its source code will not be deleted.
+                Remove this repository from Zylorun? Its stored scans, findings, risk history and repository-specific audit records will be deleted. The actual GitHub repository and its source code will not be deleted.
               </p>
             </div>
 

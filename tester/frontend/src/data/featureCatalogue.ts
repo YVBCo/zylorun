@@ -1,5 +1,5 @@
 /**
- * Comprehensive Feature Description Catalogue for GitFlow Project Hub.
+ * Comprehensive Feature Description Catalogue for Zylorun Project Hub.
  * Centralized, verifiable explanations for all 9 tabs, 10 analyzers, and key controls.
  */
 
@@ -147,7 +147,7 @@ export const TABS_EXPLANATIONS: Record<string, TabExplanation> = {
   radar: {
     id: 'radar',
     title: 'Cross-Repository Change Radar',
-    summary: 'Dependency and contract topology across multiple repositories connected to GitFlow.',
+    summary: 'Dependency and contract topology across multiple repositories connected to Zylorun.',
     purpose: 'Detect cross-service breaking changes, shared library version drifts, and downstream impacts.',
     whyUseIt: 'In multi-repo architectures, understand how an API change in one service affects consuming frontend or microservice repos.',
     inputsUsed: ['CrossRepoDependency database table', 'Connected repositories package manifests', 'Discovered API routes and consumers'],
@@ -155,7 +155,7 @@ export const TABS_EXPLANATIONS: Record<string, TabExplanation> = {
     howToInterpret: 'High downstream count indicates a foundational service where breaking API changes have wide blast radius.',
     actionsAvailable: ['Inspect cross-repo links', 'Detect version drifts', 'Refresh dependency links'],
     verificationType: 'Deterministic',
-    limitations: ['Only repositories connected to GitFlow by the user are visible in the cross-repo radar.'],
+    limitations: ['Only repositories connected to Zylorun by the user are visible in the cross-repo radar.'],
   },
 };
 
@@ -359,8 +359,8 @@ export const CONTROLS_EXPLANATIONS: Record<string, ControlExplanation> = {
   safe_delete: {
     id: 'safe_delete',
     title: 'Safe Delete Repository',
-    shortHelp: 'Removes repository from GitFlow without affecting GitHub.',
-    details: 'Transactionally cascade-deletes all GitFlow database records (scans, findings, memories, issues, releases). Does NOT call GitHub deletion API.',
-    interpretation: 'Completely removes tracked telemetry from GitFlow while leaving the actual remote GitHub repository 100% intact.',
+    shortHelp: 'Removes repository from Zylorun without affecting GitHub.',
+    details: 'Transactionally cascade-deletes all Zylorun database records (scans, findings, memories, issues, releases). Does NOT call GitHub deletion API.',
+    interpretation: 'Completely removes tracked telemetry from Zylorun while leaving the actual remote GitHub repository 100% intact.',
   },
 };

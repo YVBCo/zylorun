@@ -141,8 +141,8 @@ export const ScanningHUD: React.FC<ScanningHUDProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-brand-400">
-                  GitFlow Autonomous Radar HUD
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                  Zylorun Autonomous Radar HUD
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                   {isCompleted ? 'SCAN FINALIZED' : isFailed ? 'DIAGNOSTIC HALTED' : 'LIVE AUDIT ACTIVE'}

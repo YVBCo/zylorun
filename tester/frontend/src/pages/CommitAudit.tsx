@@ -55,7 +55,7 @@ export default function CommitAudit() {
       const link = document.createElement('a');
       link.href = url;
       const shortSha = data?.commit_sha ? data.commit_sha.substring(0, 7) : scanId;
-      link.setAttribute('download', `gitflow-security-report-scan-${scanId}-${shortSha}.pdf`);
+      link.setAttribute('download', `zylorun-security-report-scan-${scanId}-${shortSha}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
