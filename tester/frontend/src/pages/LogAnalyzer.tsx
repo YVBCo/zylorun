@@ -28,13 +28,58 @@ interface AnalysisResult {
   findings: Finding[];
 }
 
+const SAMPLES: Record<string, { name: string; text: string }> = {
+  vulnerableCode: {
+    name: 'vulnerable_auth_handler.js',
+    text: `// Vulnerable Authentication & User Lookup Module
+const express = require('express');
+const app = express();
+
+const AWS_SECRET_KEY = "AKIAIOSFODNN7EXAMPLE123";
+const JWT_PRIVATE_KEY = "super-secret-unrotated-jwt-token";
+
+app.post('/api/user/query', async (req, res) => {
+  const userId = req.body.id;
+  // Flaw 1: Raw SQL Injection Concatenation
+  const query = "SELECT * FROM users WHERE id = '" + userId + "' AND active = 1";
+  const result = await db.query(query);
+
+  // Flaw 2: Reflected Cross-Site Scripting (XSS)
+  document.getElementById('profile').innerHTML = req.body.profileHtml;
+
+  // Flaw 3: Dangerous Remote Code Evaluation
+  const evaluated = eval(req.body.expression);
+
+  res.json({ status: 'ok', data: result });
+});`
+  },
+  buildLog: {
+    name: 'backend_build_and_dep_audit.log',
+    text: `[INFO] --- maven-compiler-plugin:3.8.1:compile (default-compile) @ payment-service ---
+[WARNING] /src/main/java/SecurityConfig.java:[42,12] deprecated API used: configure(HttpSecurity http)
+[WARNING] Found outdated dependency: com.fasterxml.jackson.core:jackson-databind:2.9.10 (CVE-2020-36179 - Critical)
+[CRITICAL] Security Scan Failed: Found hardcoded Bearer token in application.properties line 18
+[ERROR] Static analysis: Insecure direct object reference (IDOR) detected in /controllers/OrderController.java
+[INFO] Compilation finished with 1 error and 2 warnings.`
+  },
+  authAttackLog: {
+    name: 'auth_firewall_audit.log',
+    text: `2026-10-16 11:42:01 [WARNING] [AuthService] Failed login attempt for user 'admin' from IP 192.168.1.104
+2026-10-16 11:42:02 [WARNING] [AuthService] Rapid password brute-force detected from 192.168.1.104 (5 failed attempts / 3 sec)
+2026-10-16 11:42:05 [CRITICAL] [WAF] SQL injection payload detected in query parameter 'username': "' OR '1'='1' --"
+2026-10-16 11:42:07 [CRITICAL] [Perimeter] Malicious token leak attempt blocked for /api/v1/internal/secrets`
+  }
+};
+
 export default function LogAnalyzer() {
   const [logText, setLogText] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
   const [filterSeverity, setFilterSeverity] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   
   // AI Fix state
   const [aiFixModalOpen, setAiFixModalOpen] = useState<boolean>(false);
@@ -43,10 +88,9 @@ export default function LogAnalyzer() {
   const [copied, setCopied] = useState<boolean>(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processFile = async (file: File) => {
     setFileName(file.name);
+    setError('');
 
     if (file.name.endsWith('.zip')) {
       try {
@@ -106,9 +150,9 @@ export default function LogAnalyzer() {
         } else {
           setLogText(extractedText.trim());
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error decompressing archive:', err);
-        setLogText('Failed to decompress file. Please ensure it is a standard, unencrypted ZIP.');
+        setError('Failed to decompress file. Please ensure it is a standard, unencrypted ZIP.');
       }
     } else {
       const reader = new FileReader();
@@ -119,16 +163,45 @@ export default function LogAnalyzer() {
     }
   };
 
-  const runAnalysis = async () => {
-    if (!logText.trim()) return;
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processFile(file);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processFile(file);
+    }
+  };
+
+  const loadSample = (key: keyof typeof SAMPLES) => {
+    const sample = SAMPLES[key];
+    if (!sample) return;
+    setFileName(sample.name);
+    setLogText(sample.text);
+    setError('');
+    runAnalysis(sample.text);
+  };
+
+  const runAnalysis = async (customText?: string) => {
+    const textToAnalyze = customText !== undefined ? customText : logText;
+    if (!textToAnalyze.trim()) return;
     setLoading(true);
     setAnalysis(null);
+    setError('');
 
     try {
-      const res = await apiClient.post('/runs/analyze-manual', { log_text: logText });
+      const res = await apiClient.post('/runs/analyze-manual', { log_text: textToAnalyze });
       setAnalysis(res.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Analysis error:', err);
+      const errMsg = err.response?.data?.detail || err.message || 'Analysis failed. Please check connectivity and try again.';
+      setError(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
     } finally {
       setLoading(false);
     }
@@ -240,15 +313,50 @@ export default function LogAnalyzer() {
       </div>
 
       {/* Input Section */}
-      <div className="p-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+      <div 
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={`p-6 bg-white dark:bg-slate-900 rounded-xl border transition shadow-sm space-y-4 ${
+          isDragging 
+            ? 'border-brand-500 bg-brand-50/10 ring-2 ring-brand-500/30 border-dashed' 
+            : 'border-slate-200 dark:border-slate-800'
+        }`}
+      >
+        {/* Quick Test Samples */}
+        <div className="flex flex-wrap items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800/60">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">⚡ 1-Click Test Scenarios:</span>
+          <button
+            type="button"
+            onClick={() => loadSample('vulnerableCode')}
+            className="text-xs px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-md hover:bg-rose-100 dark:hover:bg-rose-900/60 transition font-medium flex items-center gap-1.5"
+          >
+            <span>🚨</span> Vulnerable Code (SQLi / Secrets / XSS)
+          </button>
+          <button
+            type="button"
+            onClick={() => loadSample('buildLog')}
+            className="text-xs px-2.5 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/60 transition font-medium flex items-center gap-1.5"
+          >
+            <span>📦</span> Build Log (CVE & Deprecations)
+          </button>
+          <button
+            type="button"
+            onClick={() => loadSample('authAttackLog')}
+            className="text-xs px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition font-medium flex items-center gap-1.5"
+          >
+            <span>🛡️</span> Security Incident Log
+          </button>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <label className="relative cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 transition">
             <Upload className="w-4 h-4 text-brand-500" />
-            <span>{fileName ? `File: ${fileName}` : 'Upload Code ZIP or Log File'}</span>
+            <span>{fileName ? `File: ${fileName}` : 'Upload Code ZIP or Log File (Drag & Drop)'}</span>
             <input
               type="file"
               onChange={handleFileUpload}
-              accept=".zip,.txt,.log,.json,.js,.ts,.jsx,.tsx"
+              accept=".zip,.txt,.log,.json,.js,.ts,.jsx,.tsx,.py,.env,.yaml,.yml,.sql,.html,.sh"
               className="sr-only"
             />
           </label>
@@ -256,14 +364,14 @@ export default function LogAnalyzer() {
           <div className="flex items-center gap-2">
             {logText && (
               <button
-                onClick={() => { setLogText(''); setAnalysis(null); setFileName(''); }}
+                onClick={() => { setLogText(''); setAnalysis(null); setFileName(''); setError(''); }}
                 className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-2 py-1"
               >
                 Clear Input
               </button>
             )}
             <button
-              onClick={runAnalysis}
+              onClick={() => runAnalysis()}
               disabled={loading || !logText.trim()}
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-medium text-sm rounded-lg transition shadow-sm disabled:opacity-50"
             >
@@ -280,11 +388,22 @@ export default function LogAnalyzer() {
           </div>
         </div>
 
+        {error && (
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 rounded-lg text-sm flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-rose-500 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold">Analysis Failed</p>
+              <p className="text-xs mt-0.5">{error}</p>
+            </div>
+            <button onClick={() => setError('')} className="text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 text-xs font-bold px-1">✕</button>
+          </div>
+        )}
+
         <textarea
-          rows={6}
+          rows={7}
           value={logText}
           onChange={(e) => setLogText(e.target.value)}
-          placeholder="Paste server logs, build logs, ESLint outputs, or paste code snippets directly here..."
+          placeholder="Paste server logs, build logs, ESLint outputs, or paste code snippets directly here (or select a 1-click test scenario above)..."
           className="w-full p-4 font-mono text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 resize-y"
         />
       </div>

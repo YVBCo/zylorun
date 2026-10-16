@@ -42,18 +42,25 @@ async def analyze_manual_log(req: ManualLogRequest):
             current_file = line_clean.replace("--- File: ", "").replace(" ---", "").strip()
             continue
 
-        is_critical = any(k in line_lower for k in [
+        # Heuristics for critical security vulnerabilities and code risks
+        is_sqli = ("select " in line_lower and " from " in line_lower and "+" in line_lower) or ("cursor.execute(" in line_lower and ("+" in line_lower or "%" in line_lower))
+        is_secret = any(k in line_lower for k in ["aws_secret", "private_key", "secret_key", "bearer ", "api_key ="]) or ("password" in line_lower and "=" in line_lower and not "input" in line_lower)
+        is_rce = any(k in line_lower for k in ["eval(", "exec(", "os.system(", "subprocess.call(", "subprocess.popen("]) and ("shell=true" in line_lower or "eval" in line_lower or "exec" in line_lower)
+        is_xss = "innerhtml" in line_lower or "dangerouslysetinnerhtml" in line_lower or "document.write(" in line_lower
+
+        is_critical = is_sqli or is_secret or is_rce or is_xss or any(k in line_lower for k in [
             "error", "critical", "fatal", "secret", "password", "token", "leak", "xss", "rce", "sql injection", "dangerously", "cve-"
         ])
         is_warning = any(k in line_lower for k in [
-            "warning", "warn", "deprecated", "disclosure", "sast", "sca", "header", "leftover", "todo", "fixme", "insecure"
+            "warning", "warn", "deprecated", "disclosure", "sast", "sca", "header", "leftover", "todo", "fixme", "insecure", "debug = true", "allow_origins=[\"*\"]"
         ])
 
         if is_critical:
+            flaw_type = "SQL Injection" if is_sqli else "Hardcoded Secret" if is_secret else "Remote Code Execution (RCE)" if is_rce else "Cross-Site Scripting (XSS)" if is_xss else "Critical Finding"
             findings.append({
                 "severity": "Critical",
-                "message": f"{current_file} -> {line_clean}",
-                "recommendation": "Critical security flaw detected. Immediate remediation required."
+                "message": f"{current_file} -> [{flaw_type}] {line_clean}",
+                "recommendation": f"Critical {flaw_type} detected. Sanitize input or remove exposed secret immediately."
             })
             status_result = "Fail"
         elif is_warning:
