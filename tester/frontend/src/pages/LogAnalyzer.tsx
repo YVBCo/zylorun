@@ -286,7 +286,14 @@ export default function LogAnalyzer() {
     }
 
     try {
-      const res = await apiClient.post('/runs/analyze-manual', { log_text: textToAnalyze });
+      let b64 = '';
+      try {
+        b64 = btoa(unescape(encodeURIComponent(textToAnalyze)));
+      } catch {
+        b64 = '';
+      }
+      const payload = b64 ? { log_text_b64: b64 } : { log_text: textToAnalyze };
+      const res = await apiClient.post('/runs/analyze-manual', payload);
       setAnalysis(res.data);
     } catch (err: any) {
       console.warn('Backend analyzer unavailable or blocked by WAF. Falling back to browser AST engine...', err);

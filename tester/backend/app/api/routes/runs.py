@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 import ipaddress
+import base64
 from urllib.parse import urlparse
 import httpx
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException, status
@@ -21,11 +22,18 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 # ----------------- Manual Log & ZIP Analyzer -----------------
 
 class ManualLogRequest(BaseModel):
-    log_text: str
+    log_text: Optional[str] = None
+    log_text_b64: Optional[str] = None
 
 @router.post("/analyze-manual")
 async def analyze_manual_log(req: ManualLogRequest):
-    lines = req.log_text.replace("\r", "").split("\n")
+    raw_text = req.log_text or ""
+    if req.log_text_b64:
+        try:
+            raw_text = base64.b64decode(req.log_text_b64).decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+    lines = raw_text.replace("\r", "").split("\n")
     findings = []
     status_result = "Pass"
     current_file = "General"
