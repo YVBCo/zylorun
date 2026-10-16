@@ -110,6 +110,21 @@ export default function Layout() {
             <LogOut className="w-4 h-4 mr-3" />
             Sign Out
           </button>
+          
+          <div className="pt-2">
+            <a 
+              href="https://www.vovalyx.in/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-800 transition group"
+            >
+              <img src="/vovalyx-logo.png" alt="Vovalyx Logo" className="w-5 h-5 rounded object-contain shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-brand-500">Vovalyx</span>
+                <span className="text-[10px] text-slate-400 truncate">Engineer your vision</span>
+              </div>
+            </a>
+          </div>
         </div>
       </aside>
 
@@ -173,6 +188,48 @@ export default function Layout() {
         <div className="flex-1 overflow-auto p-8">
           <Outlet />
         </div>
+
+        {/* Permanent Vovalyx Footer */}
+        <footer className="shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs z-20">
+          <div className="flex items-center gap-3">
+            <a 
+              href="https://www.vovalyx.in/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 group transition hover:opacity-90"
+            >
+              <img 
+                src="/vovalyx-logo.png" 
+                alt="Vovalyx Logo" 
+                className="w-5 h-5 rounded object-contain"
+              />
+              <span className="font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition">
+                Vovalyx
+              </span>
+            </a>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <a 
+              href="https://www.vovalyx.in/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 font-medium transition"
+            >
+              Vovalyx — Engineer your vision.
+            </a>
+          </div>
+          <div className="text-slate-400 dark:text-slate-500 flex items-center gap-2">
+            <span>Powered by Vovalyx</span>
+            <span>&bull;</span>
+            <a 
+              href="https://www.vovalyx.in/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="hover:underline text-brand-500"
+            >
+              www.vovalyx.in
+            </a>
+          </div>
+        </footer>
       </main>
     </div>
   );

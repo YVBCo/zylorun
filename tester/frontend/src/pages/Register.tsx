@@ -90,6 +90,19 @@ export default function Register() {
             Sign in
           </Link>
         </div>
+
+        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800/80 text-center">
+          <a
+            href="https://www.vovalyx.in/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-brand-500 transition"
+          >
+            <img src="/vovalyx-logo.png" alt="Vovalyx" className="w-4 h-4 rounded object-contain" />
+            <span className="font-semibold text-slate-700 dark:text-slate-300">Vovalyx</span>
+            <span>— Engineer your vision.</span>
+          </a>
+        </div>
       </div>
     </div>
   );

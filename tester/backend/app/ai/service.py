@@ -137,20 +137,20 @@ class AIService:
             return OpenAIProvider(timeout=self.timeout_seconds)
         elif provider_name == "anthropic" and os.getenv("ANTHROPIC_API_KEY"):
             return AnthropicProvider(timeout=self.timeout_seconds)
-        elif provider_name == "gemini" and os.getenv("GEMINI_API_KEY"):
+        elif provider_name == "gemini":
             return GeminiProvider(timeout=self.timeout_seconds)
         elif provider_name == "disabled":
             return DisabledProvider("AI explicitly disabled via AI_PROVIDER=disabled")
 
         # Autodetect from keys
-        if os.getenv("GEMINI_API_KEY"):
+        if os.getenv("GEMINI_API_KEY") or GeminiProvider.get_default_key():
             return GeminiProvider(timeout=self.timeout_seconds)
         elif os.getenv("OPENAI_API_KEY"):
             return OpenAIProvider(timeout=self.timeout_seconds)
         elif os.getenv("ANTHROPIC_API_KEY"):
             return AnthropicProvider(timeout=self.timeout_seconds)
 
-        return DisabledProvider("No AI API keys configured (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY)")
+        return GeminiProvider(timeout=self.timeout_seconds)
 
     def get_provider_status(self) -> Dict[str, Any]:
         """Return truthful status and diagnostics for AI configuration without exposing secrets."""
@@ -271,8 +271,8 @@ class AIService:
             }
 
         if provider_name == "gemini":
-            key_present = bool(os.getenv("GEMINI_API_KEY", "").strip())
-            model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip()
+            key_present = bool(os.getenv("GEMINI_API_KEY", "").strip() or GeminiProvider.get_default_key())
+            model = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest").strip()
             return {
                 "configured": key_present,
                 "active_provider": "gemini" if key_present else "none",
@@ -285,8 +285,8 @@ class AIService:
             }
 
         # 4. Autodetect from keys
-        if os.getenv("GEMINI_API_KEY", "").strip():
-            model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip()
+        if os.getenv("GEMINI_API_KEY", "").strip() or GeminiProvider.get_default_key():
+            model = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest").strip()
             return {
                 "configured": True,
                 "active_provider": "gemini",

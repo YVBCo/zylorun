@@ -1490,7 +1490,37 @@ export default function Landing() {
       </main>
 
       {/* Footer */}
-      <footer>ZyloRun Autonomous Security Platform. All rights reserved.</footer>
+      <footer style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '24px 32px', borderTop: '1px solid rgba(255,255,255,0.08)', background: '#0a0e17' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <a 
+            href="https://www.vovalyx.in/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit' }}
+          >
+            <img 
+              src="/vovalyx-logo.png" 
+              alt="Vovalyx Logo" 
+              style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'contain' }} 
+            />
+            <span style={{ fontWeight: 700, fontSize: '15px', color: '#fff', letterSpacing: '-0.2px' }}>
+              Vovalyx
+            </span>
+          </a>
+          <span style={{ color: '#4B5563' }}>|</span>
+          <a 
+            href="https://www.vovalyx.in/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ color: '#00D9FF', textDecoration: 'none', fontSize: '13px', fontWeight: 500 }}
+          >
+            Vovalyx — Engineer your vision.
+          </a>
+        </div>
+        <div style={{ fontSize: '13px', color: '#6B7280' }}>
+          &copy; {new Date().getFullYear()} Vovalyx. All rights reserved.
+        </div>
+      </footer>
     </div>
   );
 }
