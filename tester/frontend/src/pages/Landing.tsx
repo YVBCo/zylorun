@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { apiClient } from '../config';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -10,6 +11,8 @@ export default function Landing() {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
+  const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Canvas refs
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -538,18 +541,23 @@ export default function Landing() {
       io.observe(termEl);
     }
 
-    return () => {
-      clearTimeout(bootTimer);
-      clearTimeout(heroTypingTimer);
-      cancelAnimationFrame(animBgId);
-      cancelAnimationFrame(animGlobeId);
-      cancelAnimationFrame(animAuthId);
-      window.removeEventListener('scroll', handleScroll);
-      heroEl?.removeEventListener('pointermove', handleHeroPointer);
-    };
-  }, []);
+      // Probe backend health status
+      apiClient.get('/health')
+        .then(() => setBackendOnline(true))
+        .catch(() => setBackendOnline(false));
 
-  const handleAuthSubmit = (e: React.FormEvent) => {
+      return () => {
+        clearTimeout(bootTimer);
+        clearTimeout(heroTypingTimer);
+        cancelAnimationFrame(animBgId);
+        cancelAnimationFrame(animGlobeId);
+        cancelAnimationFrame(animAuthId);
+        window.removeEventListener('scroll', handleScroll);
+        heroEl?.removeEventListener('pointermove', handleHeroPointer);
+      };
+    }, []);
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
       setAuthError('Enter a valid email address.');
@@ -557,12 +565,38 @@ export default function Landing() {
       authPulseRef.current?.();
       return;
     }
+    if (!password) {
+      setAuthError('Please enter your account password.');
+      authPulseRef.current?.();
+      return;
+    }
+
+    setIsAuthenticating(true);
     setAuthError('');
-    setAuthSuccess('Redirecting to your secure console...');
+    setAuthSuccess('Verifying credentials...');
     authPulseRef.current?.();
-    setTimeout(() => {
-      navigate('/login');
-    }, 700);
+
+    try {
+      const formData = new URLSearchParams();
+      formData.append('username', email);
+      formData.append('password', password);
+
+      const res = await apiClient.post('/auth/login', formData);
+      localStorage.setItem('access_token', res.data.access_token);
+      setAuthSuccess('Access granted. Entering dashboard...');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      const errorMsg = typeof detail === 'string'
+        ? detail
+        : 'Sign in failed. Check your password or click Create Account below.';
+      setAuthError(errorMsg);
+      setAuthSuccess('');
+    } finally {
+      setIsAuthenticating(false);
+    }
   };
 
   return (
@@ -619,6 +653,16 @@ export default function Landing() {
           </div>
 
           <div className="flex items-center gap-3">
+            {backendOnline !== null && (
+              <span className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono border ${
+                backendOnline 
+                  ? 'border-[#37D6A0]/40 text-[#37D6A0] bg-[#37D6A0]/10' 
+                  : 'border-[#FFBD66]/40 text-[#FFBD66] bg-[#FFBD66]/10 animate-pulse'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-[#37D6A0] shadow-[0_0_8px_#37D6A0]' : 'bg-[#FFBD66]'}`} />
+                {backendOnline ? 'Edge Engine Live' : 'Connecting Engine...'}
+              </span>
+            )}
             <Link
               to="/login"
               className="px-4 py-2 rounded-lg border border-[rgba(67,150,255,0.22)] text-sm font-medium hover:bg-[rgba(8,124,255,0.15)] hover:border-[#00D9FF] transition-all"
@@ -1106,9 +1150,13 @@ export default function Landing() {
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-[#087CFF] hover:bg-[#00D9FF] hover:text-black font-semibold text-sm shadow-[0_0_20px_rgba(8,124,255,0.5)] transition-all"
+                disabled={isAuthenticating}
+                className="w-full py-3 rounded-xl bg-[#087CFF] hover:bg-[#00D9FF] hover:text-black font-semibold text-sm shadow-[0_0_20px_rgba(8,124,255,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Sign in to Dashboard
+                {isAuthenticating && (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                <span>{isAuthenticating ? 'Authenticating...' : 'Sign in to Dashboard'}</span>
               </button>
 
               <div className="flex items-center justify-between pt-2 text-xs text-[#9CB0CA]">

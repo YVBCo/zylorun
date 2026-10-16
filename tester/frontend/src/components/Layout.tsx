@@ -25,11 +25,13 @@ export default function Layout() {
 
   useEffect(() => {
     const fetchNotifications = async () => {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
       try {
         const res = await apiClient.get(`/notifications`);
         setNotifications(res.data);
       } catch (e) {
-        console.error("Failed to fetch notifications", e);
+        // Silently ignore if offline or session expired
       }
     };
     fetchNotifications();
