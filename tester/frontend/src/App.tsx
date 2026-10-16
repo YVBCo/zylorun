@@ -19,6 +19,7 @@ import LogAnalyzer from './pages/LogAnalyzer';
 import EdgeDiagnostics from './pages/EdgeDiagnostics';
 import TargetSettings from './pages/TargetSettings';
 import SystemAssurance from './pages/SystemAssurance';
+import Admin from './pages/Admin';
 
 // Application Error Boundary to catch unexpected runtime exceptions and provide clean recovery
 interface ErrorBoundaryProps {
@@ -42,6 +43,18 @@ class AppErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState>
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Unhandled app error in AppErrorBoundary:', error, errorInfo);
+    try {
+      import('./config').then(({ apiClient }) => {
+        apiClient.post('/admin/log-error', {
+          error_type: 'REACT_APP_CRASH',
+          severity: 'CRITICAL',
+          message: error.message || 'React component crash',
+          stack_trace: `${error.stack || ''}\nComponent Stack: ${errorInfo.componentStack || ''}`,
+          path: window.location.pathname,
+          method: 'UI_RENDER'
+        }).catch(() => {});
+      });
+    } catch (_) {}
   }
 
   render() {
@@ -89,12 +102,35 @@ function TokenExtractor() {
   return null;
 }
 
+function VisitorTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    try {
+      let visitorId = localStorage.getItem('zylorun_visitor_id');
+      if (!visitorId) {
+        visitorId = 'vis_' + Math.random().toString(36).substring(2, 12);
+        localStorage.setItem('zylorun_visitor_id', visitorId);
+      }
+      import('./config').then(({ apiClient }) => {
+        apiClient.post('/admin/track-visit', {
+          visitor_id: visitorId,
+          path: location.pathname,
+          referrer: document.referrer || null,
+          user_agent: navigator.userAgent
+        }).catch(() => {});
+      });
+    } catch (_) {}
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
   return (
     <AppErrorBoundary>
       <ThemeProvider>
         <BrowserRouter>
           <TokenExtractor />
+          <VisitorTracker />
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
@@ -102,6 +138,8 @@ function App() {
 
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/admin-center" element={<Admin />} />
               <Route path="/hub" element={<ProjectHub />} />
               <Route path="/hub/:repositoryId" element={<ProjectHub />} />
               <Route path="/onboarding" element={<Onboarding />} />

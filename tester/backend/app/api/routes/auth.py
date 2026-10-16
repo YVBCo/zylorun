@@ -8,7 +8,7 @@ from app.database.models import User
 from app.schemas.user import UserCreate, UserResponse
 from app.auth.security import get_password_hash, verify_password, create_access_token, encrypt_token
 from app.config import settings
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth_states: dict[str, float] = {}
@@ -91,6 +91,12 @@ async def login(response: Response, form_data: OAuth2PasswordRequestForm = Depen
                     headers={"WWW-Authenticate": "Bearer"},
                 )
     
+    try:
+        user.last_login_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires

@@ -5,17 +5,21 @@ import logging
 import time
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from sqlalchemy import and_, or_, select, text
+from sqlalchemy import and_, or_, select, text, func, desc, delete
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
+from typing import Optional
 
 from app.config import settings
-from app.database.session import AsyncSessionLocal
-from app.database.models import Repository, Scan, Commit, User
+from app.database.session import AsyncSessionLocal, get_db
+from app.database.models import Repository, Scan, Commit, User, VisitorLog, SystemErrorLog
 from app.workers.scan_job import run_scan
 from app.utils.github import get_canonical_github_url, git_environment
 from app.auth.security import decrypt_token
+from app.auth.deps import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -414,4 +418,311 @@ async def run_polling(request: Request):
     if summary.get("status") != "completed":
         return JSONResponse(status_code=503, content=summary)
     return summary
+
+
+# ---------------------------------------------------------------------------
+# Admin Telemetry, Visitors, Users, & Error Logging Endpoints
+# ---------------------------------------------------------------------------
+
+class TrackVisitPayload(BaseModel):
+    visitor_id: Optional[str] = None
+    path: Optional[str] = "/"
+    referrer: Optional[str] = None
+    user_agent: Optional[str] = None
+
+
+class LogErrorPayload(BaseModel):
+    error_type: str = "FRONTEND_EXCEPTION"
+    severity: str = "ERROR"
+    message: str
+    stack_trace: Optional[str] = None
+    path: Optional[str] = None
+    method: Optional[str] = None
+    status_code: Optional[int] = None
+
+
+@router.post("/track-visit")
+async def track_visitor(
+    request: Request,
+    payload: TrackVisitPayload,
+    db: AsyncSession = Depends(get_db)
+):
+    """Tracks anonymous and authenticated visitors browsing the software."""
+    try:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            ip = forwarded.split(",")[0].strip()
+        elif request.client:
+            ip = request.client.host
+        else:
+            ip = "unknown"
+
+        ua = payload.user_agent or request.headers.get("user-agent", "Unknown Device")
+        
+        username = None
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                import jwt
+                token = auth_header.removeprefix("Bearer ").strip()
+                data = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+                username = data.get("sub")
+            except Exception:
+                pass
+
+        visit = VisitorLog(
+            visitor_id=payload.visitor_id or ip,
+            ip_address=ip,
+            user_agent=ua[:255] if ua else None,
+            path=payload.path or "/",
+            referrer=payload.referrer[:255] if payload.referrer else None,
+            username=username,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
+        )
+        db.add(visit)
+        await db.commit()
+        return {"status": "ok", "tracked": True}
+    except Exception as e:
+        logger.warning("track_visitor error: %s", e)
+        return {"status": "skipped", "error": str(e)}
+
+
+@router.get("/visitors/stats")
+async def get_visitor_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Returns analytics on the number of visitors and application traffic."""
+    try:
+        total_res = await db.execute(select(func.count(VisitorLog.id)))
+        total_visits = total_res.scalar() or 0
+
+        unique_res = await db.execute(select(func.count(func.distinct(VisitorLog.visitor_id))))
+        unique_visitors = unique_res.scalar() or 0
+
+        cutoff_24h = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+        today_res = await db.execute(select(func.count(VisitorLog.id)).where(VisitorLog.created_at >= cutoff_24h))
+        today_visits = today_res.scalar() or 0
+
+        cutoff_15m = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=15)
+        active_res = await db.execute(select(func.count(func.distinct(VisitorLog.visitor_id))).where(VisitorLog.created_at >= cutoff_15m))
+        active_visitors = active_res.scalar() or 0
+
+        top_res = await db.execute(
+            select(VisitorLog.path, func.count(VisitorLog.id).label("count"))
+            .group_by(VisitorLog.path)
+            .order_by(desc("count"))
+            .limit(8)
+        )
+        top_paths = [{"path": row[0], "count": row[1]} for row in top_res.all()]
+
+        recent_res = await db.execute(
+            select(VisitorLog).order_by(VisitorLog.id.desc()).limit(50)
+        )
+        recent_rows = recent_res.scalars().all()
+        recent_visits = [
+            {
+                "id": v.id,
+                "visitor_id": v.visitor_id,
+                "ip_address": v.ip_address,
+                "user_agent": v.user_agent,
+                "path": v.path,
+                "referrer": v.referrer,
+                "username": v.username,
+                "created_at": v.created_at.isoformat() if v.created_at else None,
+            }
+            for v in recent_rows
+        ]
+
+        return {
+            "total_visits": total_visits,
+            "unique_visitors": unique_visitors,
+            "today_visits": today_visits,
+            "active_visitors": active_visitors,
+            "top_paths": top_paths,
+            "recent_visits": recent_visits
+        }
+    except Exception as e:
+        logger.exception("Failed to load visitor stats")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/users")
+async def get_all_users_details(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieves all registered users, roles, active status, and current session."""
+    try:
+        users_res = await db.execute(select(User).order_by(User.id.asc()))
+        users = users_res.scalars().all()
+
+        repo_counts_res = await db.execute(
+            select(Repository.owner_id, func.count(Repository.id).label("count"))
+            .group_by(Repository.owner_id)
+        )
+        repo_map = {row[0]: row[1] for row in repo_counts_res.all()}
+
+        user_list = []
+        for u in users:
+            user_list.append({
+                "id": u.id,
+                "username": u.username,
+                "email": u.email,
+                "role": u.role,
+                "is_active": u.is_active,
+                "has_github": bool(u.github_access_token),
+                "repositories_count": repo_map.get(u.id, 0),
+                "created_at": u.created_at.isoformat() if getattr(u, "created_at", None) else None,
+                "last_login_at": u.last_login_at.isoformat() if getattr(u, "last_login_at", None) else None,
+                "is_current": (u.id == current_user.id)
+            })
+
+        return {
+            "total_users": len(user_list),
+            "active_users": sum(1 for u in user_list if u["is_active"]),
+            "admin_users": sum(1 for u in user_list if u["role"] == "Admin"),
+            "current_user": {
+                "id": current_user.id,
+                "username": current_user.username,
+                "email": current_user.email,
+                "role": current_user.role,
+            },
+            "users": user_list
+        }
+    except Exception as e:
+        logger.exception("Failed to fetch users")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/log-error")
+async def log_software_error(
+    payload: LogErrorPayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """Logs frontend or backend errors occurring in the software."""
+    try:
+        username = None
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                import jwt
+                token = auth_header.removeprefix("Bearer ").strip()
+                data = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+                username = data.get("sub")
+            except Exception:
+                pass
+
+        err_entry = SystemErrorLog(
+            error_type=payload.error_type or "SOFTWARE_ERROR",
+            severity=payload.severity or "ERROR",
+            message=payload.message,
+            stack_trace=payload.stack_trace,
+            path=payload.path or request.url.path,
+            method=payload.method or request.method,
+            status_code=payload.status_code or 500,
+            username=username,
+            resolved=False,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
+        )
+        db.add(err_entry)
+        await db.commit()
+        await db.refresh(err_entry)
+        return {"status": "logged", "error_id": err_entry.id}
+    except Exception as e:
+        logger.warning("log_software_error failed: %s", e)
+        return {"status": "skipped", "error": str(e)}
+
+
+@router.get("/errors")
+async def get_system_errors(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Returns telemetry of software errors and exceptions."""
+    try:
+        total_res = await db.execute(select(func.count(SystemErrorLog.id)))
+        total_errors = total_res.scalar() or 0
+
+        crit_res = await db.execute(select(func.count(SystemErrorLog.id)).where(SystemErrorLog.severity == "CRITICAL"))
+        critical_errors = crit_res.scalar() or 0
+
+        warn_res = await db.execute(select(func.count(SystemErrorLog.id)).where(SystemErrorLog.severity == "WARNING"))
+        warning_errors = warn_res.scalar() or 0
+
+        recent_res = await db.execute(
+            select(SystemErrorLog).order_by(SystemErrorLog.id.desc()).limit(100)
+        )
+        rows = recent_res.scalars().all()
+        errors_list = [
+            {
+                "id": r.id,
+                "error_type": r.error_type,
+                "severity": r.severity,
+                "message": r.message,
+                "stack_trace": r.stack_trace,
+                "path": r.path,
+                "method": r.method,
+                "status_code": r.status_code,
+                "username": r.username,
+                "resolved": r.resolved,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
+
+        return {
+            "total_errors": total_errors,
+            "critical_errors": critical_errors,
+            "warning_errors": warning_errors,
+            "errors": errors_list
+        }
+    except Exception as e:
+        logger.exception("Failed to fetch error logs")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/errors")
+async def clear_system_errors(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Purges the system error log."""
+    try:
+        await db.execute(delete(SystemErrorLog))
+        await db.commit()
+        return {"status": "cleared", "message": "All error logs successfully cleared."}
+    except Exception as e:
+        logger.exception("Failed to clear error logs")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/errors/test")
+async def create_test_system_error(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Simulates a test warning/error to verify live error monitoring."""
+    try:
+        sample_error = SystemErrorLog(
+            error_type="DIAGNOSTIC_SIMULATION",
+            severity="WARNING",
+            message=f"Simulated test error generated by user '{current_user.username}' from Admin Dashboard.",
+            stack_trace="Traceback (most recent call last):\n  File 'app/api/routes/admin.py', in create_test_system_error\n    raise DiagnosticSimulation('Verification event for real-time error monitor')\nDiagnosticSimulation: Telemetry pipeline operational.",
+            path="/admin/errors/test",
+            method="POST",
+            status_code=200,
+            username=current_user.username,
+            resolved=False,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
+        )
+        db.add(sample_error)
+        await db.commit()
+        await db.refresh(sample_error)
+        return {"status": "test_error_created", "error_id": sample_error.id}
+    except Exception as e:
+        logger.exception("Failed to create test error")
+        raise HTTPException(status_code=500, detail=str(e))
+
 

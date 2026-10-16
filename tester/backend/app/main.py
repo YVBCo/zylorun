@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.database.session import engine, Base
@@ -34,6 +34,26 @@ def run_migrations():
     alembic_cfg.set_main_option("script_location", os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic"))
     command.upgrade(alembic_cfg, "head")
 
+def ensure_schema_and_columns():
+    from app.database.session import sync_engine, Base
+    from sqlalchemy import text
+    try:
+        Base.metadata.create_all(bind=sync_engine)
+        with sync_engine.begin() as conn:
+            is_pg = sync_engine.dialect.name == "postgresql"
+            if is_pg:
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP;"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP;"))
+            else:
+                cols = [r[1] for r in conn.execute(text("PRAGMA table_info(users)")).fetchall()]
+                if "created_at" not in cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN created_at TIMESTAMP;"))
+                if "last_login_at" not in cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP;"))
+        logger.info("Successfully verified schema and tables (including visitor_logs and system_error_logs).")
+    except Exception as e:
+        logger.warning("ensure_schema_and_columns note: %s", e)
+
 async def background_repo_poller():
     """Continuously polls active repositories for new commits in the background.
     Runs periodically every 60 seconds with lock protection and error isolation.
@@ -65,12 +85,11 @@ async def lifespan(app: FastAPI):
             logger.info("Successfully ran database migrations.")
         except Exception as mig_err:
             logger.warning("Database migrations skipped or encountered note: %s. Ensuring schema via Base.metadata...", mig_err)
-            try:
-                from app.database.session import sync_engine, Base
-                await asyncio.to_thread(Base.metadata.create_all, bind=sync_engine)
-                logger.info("Successfully verified database schema via metadata fallback.")
-            except Exception as meta_err:
-                logger.warning("Metadata verification notice: %s", meta_err)
+        
+        try:
+            await asyncio.to_thread(ensure_schema_and_columns)
+        except Exception as schema_err:
+            logger.warning("Schema preparation note: %s", schema_err)
 
         try:
             from app.database.session import SessionLocal
@@ -183,6 +202,49 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
+@app.middleware("http")
+async def error_and_system_monitor_middleware(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        if response.status_code >= 500:
+            try:
+                from app.database.models import SystemErrorLog
+                from app.database.session import AsyncSessionLocal
+                async with AsyncSessionLocal() as session:
+                    err_entry = SystemErrorLog(
+                        error_type="API_SERVER_ERROR",
+                        severity="CRITICAL",
+                        message=f"HTTP {response.status_code} occurred on {request.method} {request.url.path}",
+                        path=request.url.path,
+                        method=request.method,
+                        status_code=response.status_code
+                    )
+                    session.add(err_entry)
+                    await session.commit()
+            except Exception:
+                pass
+        return response
+    except Exception as exc:
+        import traceback
+        try:
+            from app.database.models import SystemErrorLog
+            from app.database.session import AsyncSessionLocal
+            async with AsyncSessionLocal() as session:
+                err_entry = SystemErrorLog(
+                    error_type="UNHANDLED_EXCEPTION",
+                    severity="CRITICAL",
+                    message=str(exc),
+                    stack_trace=traceback.format_exc(),
+                    path=request.url.path,
+                    method=request.method,
+                    status_code=500
+                )
+                session.add(err_entry)
+                await session.commit()
+        except Exception:
+            pass
+        raise exc
 
 app.include_router(auth.router)
 app.include_router(repositories.router)

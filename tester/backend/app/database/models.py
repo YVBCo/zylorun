@@ -19,6 +19,8 @@ class User(Base):
     github_access_token = Column(String, nullable=True)
     role = Column(String, default=RoleEnum.ANALYST.value, nullable=False)
     is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=True)
+    last_login_at = Column(DateTime, nullable=True)
 
     repositories = relationship("Repository", back_populates="owner", cascade="all, delete-orphan")
     targets = relationship("Target", back_populates="user", cascade="all, delete-orphan")
@@ -352,3 +354,33 @@ class RunHistory(Base):
     command = relationship("CommandConfig", back_populates="runs")
     target = relationship("Target", back_populates="runs")
     user = relationship("User", back_populates="run_history")
+
+
+class VisitorLog(Base):
+    __tablename__ = "visitor_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    visitor_id = Column(String, index=True, nullable=True)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    path = Column(String, nullable=False, default="/")
+    referrer = Column(String, nullable=True)
+    username = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), index=True)
+
+
+class SystemErrorLog(Base):
+    __tablename__ = "system_error_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    error_type = Column(String, nullable=False)  # "FRONTEND_EXCEPTION", "API_ERROR", "DATABASE_ERROR", "NETWORK_ERROR"
+    severity = Column(String, default="ERROR")    # "CRITICAL", "ERROR", "WARNING"
+    message = Column(Text, nullable=False)
+    stack_trace = Column(Text, nullable=True)
+    path = Column(String, nullable=True)
+    method = Column(String, nullable=True)
+    status_code = Column(Integer, nullable=True)
+    username = Column(String, nullable=True)
+    resolved = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), index=True)
+

@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Shield, LayoutDashboard, GitBranch, Moon, Sun, LogOut, Bell, Compass, Terminal, FileCode, Globe, Server, CheckCircle2 } from 'lucide-react';
+import { Shield, LayoutDashboard, GitBranch, Moon, Sun, LogOut, Bell, Compass, Terminal, FileCode, Globe, Server, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useTheme } from '../context/useTheme';
 import { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../config';
@@ -13,6 +13,7 @@ export default function Layout() {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Admin Console', href: '/admin', icon: ShieldCheck },
     { name: 'System Assurance', href: '/assurance', icon: CheckCircle2 },
     { name: 'Project Hub', href: '/hub', icon: Compass },
     { name: 'Repositories', href: '/onboarding', icon: GitBranch },
