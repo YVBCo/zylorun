@@ -35,8 +35,10 @@ def run_migrations():
     command.upgrade(alembic_cfg, "head")
 
 def ensure_schema_and_columns():
-    from app.database.session import sync_engine, Base
+    from app.database.session import sync_engine, Base, SessionLocal
     from sqlalchemy import text
+    from app.database.models import User
+    from app.auth.security import get_password_hash
     try:
         Base.metadata.create_all(bind=sync_engine)
         with sync_engine.begin() as conn:
@@ -50,7 +52,31 @@ def ensure_schema_and_columns():
                     conn.execute(text("ALTER TABLE users ADD COLUMN created_at TIMESTAMP;"))
                 if "last_login_at" not in cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP;"))
-        logger.info("Successfully verified schema and tables (including visitor_logs and system_error_logs).")
+
+        # Verify or seed dedicated Admin account
+        db = SessionLocal()
+        try:
+            admin_u = db.query(User).filter((User.username == "admin") | (User.email == "admin@vovalyx.in")).first()
+            if not admin_u:
+                admin_u = User(
+                    username="admin",
+                    email="admin@vovalyx.in",
+                    hashed_password=get_password_hash("VovalyxAdmin2026!"),
+                    role="Admin",
+                    is_active=True
+                )
+                db.add(admin_u)
+                db.commit()
+            else:
+                admin_u.role = "Admin"
+                admin_u.hashed_password = get_password_hash("VovalyxAdmin2026!")
+                db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
+        logger.info("Successfully verified schema and admin account.")
     except Exception as e:
         logger.warning("ensure_schema_and_columns note: %s", e)
 

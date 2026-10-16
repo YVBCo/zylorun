@@ -136,10 +136,13 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
+            {/* Standalone Protected Admin Security Portal */}
+            <Route path="/flash-admin" element={<Admin />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/login" element={<Admin />} />
+
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/admin-center" element={<Admin />} />
               <Route path="/hub" element={<ProjectHub />} />
               <Route path="/hub/:repositoryId" element={<ProjectHub />} />
               <Route path="/onboarding" element={<Onboarding />} />
