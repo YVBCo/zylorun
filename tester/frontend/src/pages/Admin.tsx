@@ -77,8 +77,8 @@ export default function Admin() {
   const [adminToken, setAdminToken] = useState<string | null>(() => localStorage.getItem('admin_access_token'));
   
   // Login State
-  const [loginUsername, setLoginUsername] = useState<string>('admin');
-  const [loginPassword, setLoginPassword] = useState<string>('VovalyxAdmin2026!');
+  const [loginUsername, setLoginUsername] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
   const [loginLoading, setLoginLoading] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
@@ -337,18 +337,6 @@ export default function Admin() {
             <p className="text-xs text-slate-400">
               Restricted Area • Master System Telemetry, Visitors & User Controls
             </p>
-          </div>
-
-          {/* Credentials Notice Pill */}
-          <div className="p-4 rounded-xl bg-slate-900/90 border border-emerald-500/30 text-xs space-y-1 shadow-sm">
-            <div className="flex items-center gap-2 font-bold text-emerald-400">
-              <KeyRound className="w-4 h-4 text-emerald-400" />
-              <span>Dedicated Admin Credentials:</span>
-            </div>
-            <div className="font-mono text-[11px] text-slate-300 pl-6 space-y-0.5">
-              <div>Username: <strong className="text-white">admin</strong></div>
-              <div>Password: <strong className="text-emerald-300">VovalyxAdmin2026!</strong></div>
-            </div>
           </div>
 
           {/* Login Form */}
